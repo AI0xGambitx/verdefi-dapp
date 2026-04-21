@@ -18,6 +18,9 @@ import {
   verdeVaultAbi,
 } from "./contracts/abis"
 
+const AVALANCHE_MAINNET_CHAIN_ID = 43114
+const STORAGE_KEY_LAST_REQUEST_ID = "verdefi_last_request_id"
+
 function App() {
   const { address, isConnected, chain } = useAccount()
   const { connect, connectors } = useConnect()
@@ -26,7 +29,9 @@ function App() {
 
   const [depositAmount, setDepositAmount] = useState("100")
   const [withdrawAmount, setWithdrawAmount] = useState("2000")
-  const [claimId, setClaimId] = useState("2")
+  const [claimId, setClaimId] = useState(() => {
+    return localStorage.getItem(STORAGE_KEY_LAST_REQUEST_ID) || ""
+  })
   const [loadingAction, setLoadingAction] = useState("")
   const [txMessage, setTxMessage] = useState("")
 
@@ -37,6 +42,8 @@ function App() {
         c.id?.toLowerCase().includes("metamask")
     )
   }, [connectors])
+
+  const isCorrectNetwork = chain?.id === AVALANCHE_MAINNET_CHAIN_ID
 
   const handleConnect = () => {
     if (!metaMaskConnector) {
@@ -73,6 +80,17 @@ function App() {
       minimumFractionDigits: 2,
       maximumFractionDigits: 4,
     })
+  }
+
+  const saveRequestId = (id) => {
+    const normalized = String(id)
+    setClaimId(normalized)
+    localStorage.setItem(STORAGE_KEY_LAST_REQUEST_ID, normalized)
+  }
+
+  const clearRequestId = () => {
+    setClaimId("")
+    localStorage.removeItem(STORAGE_KEY_LAST_REQUEST_ID)
   }
 
   const { data: avaxBalance } = useBalance({
@@ -128,6 +146,16 @@ function App() {
   }
 
   const handleDeposit = async () => {
+    if (!isConnected) {
+      setTxMessage("Connect your wallet first.")
+      return
+    }
+
+    if (!isCorrectNetwork) {
+      setTxMessage("Wrong network. Please switch to Avalanche Mainnet.")
+      return
+    }
+
     try {
       setLoadingAction("deposit")
       setTxMessage("Approving USDC spending...")
@@ -143,7 +171,7 @@ function App() {
 
       await waitForTransactionReceipt(config, { hash: approveHash })
 
-      setTxMessage("Approval confirmed. Depositing...")
+      setTxMessage("Approval confirmed. Depositing USDC...")
 
       const depositHash = await writeContractAsync({
         address: CONTRACTS.verdeVault,
@@ -154,7 +182,7 @@ function App() {
 
       await waitForTransactionReceipt(config, { hash: depositHash })
 
-      setTxMessage(`Deposit successful: ${depositHash}`)
+      setTxMessage(`Deposit confirmed. VERDE minted successfully. Tx: ${depositHash}`)
       await refreshData()
     } catch (err) {
       setTxMessage(
@@ -166,23 +194,50 @@ function App() {
   }
 
   const handleWithdrawRequest = async () => {
+    if (!isConnected) {
+      setTxMessage("Connect your wallet first.")
+      return
+    }
+
+    if (!isCorrectNetwork) {
+      setTxMessage("Wrong network. Please switch to Avalanche Mainnet.")
+      return
+    }
+
     try {
       setLoadingAction("request")
       setTxMessage("Submitting withdraw request...")
 
       const amount = parseUnits(withdrawAmount, 18)
 
-      const hash = await writeContractAsync({
+      const requestId = await writeContractAsync({
         address: CONTRACTS.verdeVault,
         abi: verdeVaultAbi,
         functionName: "requestWithdraw",
         args: [amount],
       })
 
-      await waitForTransactionReceipt(config, { hash })
+      await waitForTransactionReceipt(config, { hash: requestId })
 
-      setTxMessage(`Withdraw request successful: ${hash}`)
+      // Nota:
+      // Con wagmi/viem, writeContractAsync normalmente regresa el tx hash.
+      // Como fallback seguro, usamos el latestRequestId después del refetch.
       await refreshData()
+
+      const nextId =
+        withdrawRequestsCount !== undefined
+          ? Number(withdrawRequestsCount)
+          : null
+
+      if (nextId !== null) {
+        const actualId = String(nextId)
+        saveRequestId(actualId)
+        setTxMessage(
+          `Withdraw request submitted successfully. Latest request ID saved locally: ${actualId}`
+        )
+      } else {
+        setTxMessage(`Withdraw request submitted successfully. Tx: ${requestId}`)
+      }
     } catch (err) {
       setTxMessage(
         `Withdraw request failed: ${err?.shortMessage || err?.message || "Unknown error"}`
@@ -193,6 +248,21 @@ function App() {
   }
 
   const handleClaim = async () => {
+    if (!isConnected) {
+      setTxMessage("Connect your wallet first.")
+      return
+    }
+
+    if (!isCorrectNetwork) {
+      setTxMessage("Wrong network. Please switch to Avalanche Mainnet.")
+      return
+    }
+
+    if (!claimId) {
+      setTxMessage("Enter a valid request ID first.")
+      return
+    }
+
     try {
       setLoadingAction("claim")
       setTxMessage(`Claiming request ID ${claimId}...`)
@@ -206,7 +276,7 @@ function App() {
 
       await waitForTransactionReceipt(config, { hash })
 
-      setTxMessage(`Claim successful: ${hash}`)
+      setTxMessage(`Claim completed successfully. USDC released. Tx: ${hash}`)
       await refreshData()
     } catch (err) {
       setTxMessage(
@@ -221,6 +291,14 @@ function App() {
     withdrawRequestsCount !== undefined && Number(withdrawRequestsCount) > 0
       ? Number(withdrawRequestsCount) - 1
       : "—"
+
+  const displayedNetwork = isConnected
+    ? isCorrectNetwork
+      ? "Avalanche Mainnet (43114)"
+      : chain?.id
+      ? `Wrong Network (${chain.id})`
+      : "Unknown Network"
+    : "—"
 
   return (
     <div style={styles.page}>
@@ -250,9 +328,18 @@ function App() {
             <div style={styles.heroBadge}>Dashboard</div>
             <h1 style={styles.heroTitle}>Mint, request, and claim with VerdeFi</h1>
             <p style={styles.heroText}>
-              A simple on-chain interface to interact with the VerdeVault on Avalanche.
+              A simple on-chain interface to interact with the VerdeVault on Avalanche Mainnet.
             </p>
           </section>
+
+          {!isConnected && (
+            <section style={styles.statusWrap}>
+              <div style={styles.statusTitle}>Wallet Status</div>
+              <div style={styles.statusText}>
+                Connect your wallet to use VerdeFi on Avalanche Mainnet.
+              </div>
+            </section>
+          )}
 
           {isConnected && (
             <section style={styles.statsGrid}>
@@ -263,8 +350,13 @@ function App() {
 
               <div style={styles.statCard}>
                 <span style={styles.statLabel}>Network</span>
-                <span style={styles.statValue}>
-                  {chain?.name || "—"} {chain?.id ? `(${chain.id})` : ""}
+                <span
+                  style={{
+                    ...styles.statValue,
+                    color: isCorrectNetwork ? "#FFFFFF" : "#ff8e8e",
+                  }}
+                >
+                  {displayedNetwork}
                 </span>
               </div>
 
@@ -285,7 +377,7 @@ function App() {
               <div style={styles.infoPanel}>
                 <div style={styles.panelTitle}>Portfolio</div>
                 <div style={styles.infoRow}>
-                  <span style={styles.infoKey}>mUSDC</span>
+                  <span style={styles.infoKey}>USDC</span>
                   <span style={styles.infoValue}>{formatUSDC(usdcBalance)}</span>
                 </div>
                 <div style={styles.infoRow}>
@@ -316,6 +408,16 @@ function App() {
             </section>
           )}
 
+          {isConnected && !isCorrectNetwork && (
+            <section style={styles.statusWrapError}>
+              <div style={styles.statusTitle}>Network Warning</div>
+              <div style={styles.statusText}>
+                Wrong network detected. Please switch MetaMask to Avalanche Mainnet
+                before depositing, requesting, or claiming.
+              </div>
+            </section>
+          )}
+
           <section style={styles.cardsGrid}>
             <div style={{ ...styles.actionCard, ...styles.cardDeposit }}>
               <div style={styles.cardAccentGreen} />
@@ -340,7 +442,7 @@ function App() {
               <button
                 style={{ ...styles.actionButton, ...styles.buttonDeposit }}
                 onClick={handleDeposit}
-                disabled={loadingAction !== ""}
+                disabled={loadingAction !== "" || !isConnected || !isCorrectNetwork}
               >
                 {loadingAction === "deposit" ? "Processing..." : "Approve + Deposit"}
               </button>
@@ -368,10 +470,12 @@ function App() {
                 placeholder="2000"
               />
 
+              <div style={styles.helperText}>Withdrawal delay: 24 hours</div>
+
               <button
                 style={{ ...styles.actionButton, ...styles.buttonRequest }}
                 onClick={handleWithdrawRequest}
-                disabled={loadingAction !== ""}
+                disabled={loadingAction !== "" || !isConnected || !isCorrectNetwork}
               >
                 {loadingAction === "request" ? "Processing..." : "Request Withdraw"}
               </button>
@@ -396,13 +500,25 @@ function App() {
                 type="number"
                 step="1"
                 min="0"
-                placeholder="2"
+                placeholder="Latest request ID"
               />
+
+              <div style={styles.helperRow}>
+                <span style={styles.helperText}>
+                  {claimId
+                    ? `Stored locally: request ID ${claimId}`
+                    : "No request ID stored locally yet"}
+                </span>
+
+                <button style={styles.clearButton} onClick={clearRequestId}>
+                  Clear
+                </button>
+              </div>
 
               <button
                 style={{ ...styles.actionButton, ...styles.buttonClaim }}
                 onClick={handleClaim}
-                disabled={loadingAction !== ""}
+                disabled={loadingAction !== "" || !isConnected || !isCorrectNetwork}
               >
                 {loadingAction === "claim" ? "Processing..." : "Claim Withdraw"}
               </button>
@@ -633,7 +749,7 @@ const styles = {
 
   actionCard: {
     position: "relative",
-    minHeight: 320,
+    minHeight: 350,
     borderRadius: 28,
     padding: 26,
     overflow: "hidden",
@@ -732,7 +848,7 @@ const styles = {
   input: {
     width: "100%",
     marginTop: 24,
-    marginBottom: 20,
+    marginBottom: 14,
     borderRadius: 16,
     border: "1px solid rgba(255,255,255,0.10)",
     background: "rgba(0,0,0,0.20)",
@@ -742,6 +858,31 @@ const styles = {
     padding: "18px 18px",
     outline: "none",
     boxSizing: "border-box",
+  },
+
+  helperText: {
+    fontSize: 13,
+    color: "rgba(255,255,255,0.68)",
+    marginBottom: 16,
+  },
+
+  helperRow: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    marginBottom: 16,
+  },
+
+  clearButton: {
+    border: "1px solid rgba(255,255,255,0.14)",
+    background: "rgba(255,255,255,0.06)",
+    color: "#FFFFFF",
+    borderRadius: 12,
+    padding: "8px 12px",
+    fontSize: 13,
+    fontWeight: 700,
+    cursor: "pointer",
   },
 
   actionButton: {
@@ -772,6 +913,13 @@ const styles = {
   statusWrap: {
     background: "rgba(7, 23, 21, 0.78)",
     border: "1px solid rgba(255,255,255,0.08)",
+    borderRadius: 22,
+    padding: 22,
+  },
+
+  statusWrapError: {
+    background: "rgba(70, 13, 13, 0.55)",
+    border: "1px solid rgba(255, 120, 120, 0.28)",
     borderRadius: 22,
     padding: 22,
   },
