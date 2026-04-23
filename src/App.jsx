@@ -643,6 +643,12 @@ const styles = {
     alignItems: "center",
     gap: 10,
   },
+  logoFull: {
+  height: 42,
+  width: "auto",
+  objectFit: "contain",
+  display: "block",
+  },
 
   logo: {
     width: 34,
