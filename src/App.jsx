@@ -2,9 +2,11 @@ import { useMemo, useState } from "react"
 import {
   useAccount,
   useBalance,
+  useChainId,
   useConnect,
   useDisconnect,
   useReadContract,
+  useSwitchChain,
   useWriteContract,
 } from "wagmi"
 import { waitForTransactionReceipt } from "@wagmi/core"
@@ -22,9 +24,11 @@ const AVALANCHE_MAINNET_CHAIN_ID = 43114
 const STORAGE_KEY_LAST_REQUEST_ID = "verdefi_last_request_id"
 
 function App() {
-  const { address, isConnected, chain } = useAccount()
+  const { address, isConnected } = useAccount()
+  const chainId = useChainId()
   const { connect, connectors } = useConnect()
   const { disconnect } = useDisconnect()
+  const { switchChain } = useSwitchChain()
   const { writeContractAsync } = useWriteContract()
 
   const [depositAmount, setDepositAmount] = useState("100")
@@ -43,7 +47,7 @@ function App() {
     )
   }, [connectors])
 
-  const isCorrectNetwork = chain?.id === AVALANCHE_MAINNET_CHAIN_ID
+  const isCorrectNetwork = chainId === AVALANCHE_MAINNET_CHAIN_ID
 
   const handleConnect = () => {
     if (!metaMaskConnector) {
@@ -95,7 +99,7 @@ function App() {
 
   const { data: avaxBalance } = useBalance({
     address,
-    query: { enabled: !!address },
+    query: { enabled: !!address && isCorrectNetwork },
   })
 
   const { data: usdcBalance, refetch: refetchUsdcBalance } = useReadContract({
@@ -103,7 +107,8 @@ function App() {
     abi: mockUsdcAbi,
     functionName: "balanceOf",
     args: address ? [address] : undefined,
-    query: { enabled: !!address },
+    chainId: AVALANCHE_MAINNET_CHAIN_ID,
+    query: { enabled: !!address && isCorrectNetwork },
   })
 
   const { data: verdeBalance, refetch: refetchVerdeBalance } = useReadContract({
@@ -111,7 +116,8 @@ function App() {
     abi: verdeTokenAbi,
     functionName: "balanceOf",
     args: address ? [address] : undefined,
-    query: { enabled: !!address },
+    chainId: AVALANCHE_MAINNET_CHAIN_ID,
+    query: { enabled: !!address && isCorrectNetwork },
   })
 
   const { data: quoteVerdeOut, refetch: refetchQuoteVerdeOut } = useReadContract({
@@ -119,6 +125,8 @@ function App() {
     abi: verdeVaultAbi,
     functionName: "quoteVerdeOut",
     args: [parseUnits("100", 6)],
+    chainId: AVALANCHE_MAINNET_CHAIN_ID,
+    query: { enabled: isCorrectNetwork },
   })
 
   const { data: quoteUsdcGross, refetch: refetchQuoteUsdcGross } = useReadContract({
@@ -126,6 +134,8 @@ function App() {
     abi: verdeVaultAbi,
     functionName: "quoteUsdcGross",
     args: [parseUnits("2000", 18)],
+    chainId: AVALANCHE_MAINNET_CHAIN_ID,
+    query: { enabled: isCorrectNetwork },
   })
 
   const { data: withdrawRequestsCount, refetch: refetchWithdrawRequestsCount } =
@@ -133,6 +143,8 @@ function App() {
       address: CONTRACTS.verdeVault,
       abi: verdeVaultAbi,
       functionName: "withdrawRequestsCount",
+      chainId: AVALANCHE_MAINNET_CHAIN_ID,
+      query: { enabled: isCorrectNetwork },
     })
 
   const refreshData = async () => {
@@ -167,6 +179,7 @@ function App() {
         abi: mockUsdcAbi,
         functionName: "approve",
         args: [CONTRACTS.verdeVault, amount],
+        chainId: AVALANCHE_MAINNET_CHAIN_ID,
       })
 
       await waitForTransactionReceipt(config, { hash: approveHash })
@@ -178,6 +191,7 @@ function App() {
         abi: verdeVaultAbi,
         functionName: "deposit",
         args: [amount],
+        chainId: AVALANCHE_MAINNET_CHAIN_ID,
       })
 
       await waitForTransactionReceipt(config, { hash: depositHash })
@@ -210,18 +224,15 @@ function App() {
 
       const amount = parseUnits(withdrawAmount, 18)
 
-      const requestId = await writeContractAsync({
+      const hash = await writeContractAsync({
         address: CONTRACTS.verdeVault,
         abi: verdeVaultAbi,
         functionName: "requestWithdraw",
         args: [amount],
+        chainId: AVALANCHE_MAINNET_CHAIN_ID,
       })
 
-      await waitForTransactionReceipt(config, { hash: requestId })
-
-      // Nota:
-      // Con wagmi/viem, writeContractAsync normalmente regresa el tx hash.
-      // Como fallback seguro, usamos el latestRequestId después del refetch.
+      await waitForTransactionReceipt(config, { hash })
       await refreshData()
 
       const nextId =
@@ -236,7 +247,7 @@ function App() {
           `Withdraw request submitted successfully. Latest request ID saved locally: ${actualId}`
         )
       } else {
-        setTxMessage(`Withdraw request submitted successfully. Tx: ${requestId}`)
+        setTxMessage(`Withdraw request submitted successfully. Tx: ${hash}`)
       }
     } catch (err) {
       setTxMessage(
@@ -272,6 +283,7 @@ function App() {
         abi: verdeVaultAbi,
         functionName: "claimWithdraw",
         args: [BigInt(claimId)],
+        chainId: AVALANCHE_MAINNET_CHAIN_ID,
       })
 
       await waitForTransactionReceipt(config, { hash })
@@ -295,8 +307,8 @@ function App() {
   const displayedNetwork = isConnected
     ? isCorrectNetwork
       ? "Avalanche Mainnet (43114)"
-      : chain?.id
-      ? `Wrong Network (${chain.id})`
+      : chainId
+      ? `Wrong Network (${chainId})`
       : "Unknown Network"
     : "—"
 
@@ -415,6 +427,13 @@ function App() {
                 Wrong network detected. Please switch MetaMask to Avalanche Mainnet
                 before depositing, requesting, or claiming.
               </div>
+
+              <button
+                style={styles.switchNetworkButton}
+                onClick={() => switchChain({ chainId: AVALANCHE_MAINNET_CHAIN_ID })}
+              >
+                Switch to Avalanche Mainnet
+              </button>
             </section>
           )}
 
@@ -434,8 +453,9 @@ function App() {
                 value={depositAmount}
                 onChange={(e) => setDepositAmount(e.target.value)}
                 type="number"
-                step="0.000001"
+                step="1"
                 min="0"
+                inputMode="numeric"
                 placeholder="100"
               />
 
@@ -465,8 +485,9 @@ function App() {
                 value={withdrawAmount}
                 onChange={(e) => setWithdrawAmount(e.target.value)}
                 type="number"
-                step="0.000001"
+                step="1"
                 min="0"
+                inputMode="numeric"
                 placeholder="2000"
               />
 
@@ -500,6 +521,7 @@ function App() {
                 type="number"
                 step="1"
                 min="0"
+                inputMode="numeric"
                 placeholder="Latest request ID"
               />
 
@@ -882,6 +904,18 @@ const styles = {
     padding: "8px 12px",
     fontSize: 13,
     fontWeight: 700,
+    cursor: "pointer",
+  },
+
+  switchNetworkButton: {
+    marginTop: 14,
+    border: "1px solid rgba(255,255,255,0.14)",
+    background: "#FFD374",
+    color: "#0A1B18",
+    borderRadius: 12,
+    padding: "12px 16px",
+    fontSize: 14,
+    fontWeight: 800,
     cursor: "pointer",
   },
 
