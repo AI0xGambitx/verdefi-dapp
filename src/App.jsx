@@ -244,7 +244,7 @@ function App() {
         const actualId = String(nextId)
         saveRequestId(actualId)
         setTxMessage(
-          `Withdraw request submitted successfully. Latest request ID saved locally: ${actualId}`
+          `Withdrawal requested successfully. Your Request ID is #${actualId}. Save it to claim your funds after 24h.`
         )
       } else {
         setTxMessage(`Withdraw request submitted successfully. Tx: ${hash}`)
@@ -320,18 +320,23 @@ function App() {
       <div style={styles.shell}>
         <header style={styles.header}>
           <div>
-            <div style={styles.brand}>VerdeFi</div>
-            <div style={styles.tagline}>Cannabis-backed DeFi on Avalanche</div>
+           <div style={styles.brandRow}>
+            <img src="/logo.png" alt="VerdeFi logo" style={styles.logoFull} />
           </div>
+          <div style={styles.tagline}>Cannabis-backed DeFi on Avalanche</div>
+      </div>  
 
           {!isConnected ? (
             <button style={styles.headerButton} onClick={handleConnect}>
               Connect Wallet
             </button>
           ) : (
-            <button style={styles.headerButtonAlt} onClick={() => disconnect()}>
-              Disconnect
-            </button>
+            <div style={styles.walletBox}>
+              <span style={styles.walletAddress}>{shortenAddress(address)}</span>
+              <button style={styles.disconnectButton} onClick={() => disconnect()}>
+                Disconnect
+              </button>
+            </div>
           )}
         </header>
 
@@ -444,7 +449,9 @@ function App() {
                 <div style={styles.cardIcon}>↗</div>
                 <div>
                   <div style={styles.cardTitle}>Deposit</div>
-                  <div style={styles.cardSubtitle}>Mint VERDE by depositing USDC</div>
+                  <div style={styles.cardSubtitle}>
+                    Deposit USDC to mint VERDE at protocol rate
+                  </div>
                 </div>
               </div>
 
@@ -475,7 +482,7 @@ function App() {
                 <div>
                   <div style={styles.cardTitle}>Request Withdraw</div>
                   <div style={styles.cardSubtitle}>
-                    Burn VERDE and create a withdraw request
+                    Burn VERDE to create a withdrawal request (24h delay)
                   </div>
                 </div>
               </div>
@@ -509,32 +516,41 @@ function App() {
                 <div>
                   <div style={styles.cardTitle}>Claim Withdraw</div>
                   <div style={styles.cardSubtitle}>
-                    Claim matured requests using the request ID
+                    Claim released USDC using your Request ID
                   </div>
                 </div>
               </div>
 
               <input
-                style={styles.input}
+                style={{
+                  ...styles.input,
+                  MozAppearance: "textfield",
+                }}
                 value={claimId}
                 onChange={(e) => setClaimId(e.target.value)}
-                type="number"
-                step="1"
-                min="0"
+                type="text"
                 inputMode="numeric"
-                placeholder="Latest request ID"
+                placeholder="Enter your Request ID"
               />
 
-              <div style={styles.helperRow}>
-                <span style={styles.helperText}>
-                  {claimId
-                    ? `Stored locally: request ID ${claimId}`
-                    : "No request ID stored locally yet"}
-                </span>
+              <div style={styles.requestIdBox}>
+                {claimId ? (
+                  <>
+                    <div style={styles.requestIdLabel}>Request ID to Claim</div>
+                    <div style={styles.requestIdValue}>#{claimId}</div>
+                    <div style={styles.requestIdHint}>
+                      Save this ID. You will need it to claim your funds.
+                    </div>
+                  </>
+                ) : (
+                  <div style={styles.requestIdEmpty}>No request ID stored yet</div>
+                )}
 
-                <button style={styles.clearButton} onClick={clearRequestId}>
-                  Clear
-                </button>
+                {claimId && (
+                  <button style={styles.clearButton} onClick={clearRequestId}>
+                    Clear
+                  </button>
+                )}
               </div>
 
               <button
@@ -542,15 +558,21 @@ function App() {
                 onClick={handleClaim}
                 disabled={loadingAction !== "" || !isConnected || !isCorrectNetwork}
               >
-                {loadingAction === "claim" ? "Processing..." : "Claim Withdraw"}
+                {loadingAction === "claim"
+                  ? "Processing..."
+                  : `Claim ${claimId ? `#${claimId}` : "Withdraw"}`}
               </button>
             </div>
           </section>
 
           <section style={styles.statusWrap}>
-            <div style={styles.statusTitle}>Transaction Status</div>
+            <div style={styles.statusHeader}>
+              <div style={styles.statusDot} />
+              <div style={styles.statusTitleMain}>Transaction Status</div>
+            </div>
+
             <div style={styles.statusText}>
-              {txMessage || "Ready. Connect wallet and interact with the vault."}
+              {txMessage || "Ready to interact with VerdeFi."}
             </div>
           </section>
         </main>
@@ -616,6 +638,18 @@ const styles = {
     marginBottom: 28,
   },
 
+  brandRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+  },
+
+  logo: {
+    width: 34,
+    height: 34,
+    objectFit: "contain",
+  },
+
   brand: {
     fontSize: 36,
     fontWeight: 800,
@@ -642,14 +676,30 @@ const styles = {
     backdropFilter: "blur(10px)",
   },
 
-  headerButtonAlt: {
+  walletBox: {
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    background: "rgba(255,255,255,0.05)",
+    border: "1px solid rgba(255,255,255,0.1)",
+    borderRadius: 14,
+    padding: "8px 12px",
+  },
+
+  walletAddress: {
+    fontSize: 13,
+    fontWeight: 700,
+    color: "#FFFFFF",
+  },
+
+  disconnectButton: {
     background: "#FFD374",
     color: "#0A1B18",
-    border: "1px solid transparent",
-    borderRadius: 16,
-    padding: "14px 22px",
-    fontSize: 16,
-    fontWeight: 700,
+    border: "none",
+    borderRadius: 10,
+    padding: "6px 10px",
+    fontSize: 12,
+    fontWeight: 800,
     cursor: "pointer",
   },
 
@@ -880,19 +930,13 @@ const styles = {
     padding: "18px 18px",
     outline: "none",
     boxSizing: "border-box",
+    WebkitAppearance: "none",
+    appearance: "none",
   },
 
   helperText: {
     fontSize: 13,
     color: "rgba(255,255,255,0.68)",
-    marginBottom: 16,
-  },
-
-  helperRow: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
     marginBottom: 16,
   },
 
@@ -905,6 +949,40 @@ const styles = {
     fontSize: 13,
     fontWeight: 700,
     cursor: "pointer",
+    marginTop: 12,
+  },
+
+  requestIdBox: {
+    border: "1px solid rgba(255,211,116,0.25)",
+    background: "rgba(255,211,116,0.05)",
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 16,
+  },
+
+  requestIdLabel: {
+    fontSize: 11,
+    letterSpacing: "0.08em",
+    textTransform: "uppercase",
+    color: "rgba(255,255,255,0.6)",
+  },
+
+  requestIdValue: {
+    fontSize: 22,
+    fontWeight: 800,
+    color: "#FFD374",
+    marginTop: 4,
+  },
+
+  requestIdHint: {
+    fontSize: 12,
+    color: "rgba(255,255,255,0.6)",
+    marginTop: 6,
+  },
+
+  requestIdEmpty: {
+    fontSize: 13,
+    color: "rgba(255,255,255,0.5)",
   },
 
   switchNetworkButton: {
@@ -956,6 +1034,28 @@ const styles = {
     border: "1px solid rgba(255, 120, 120, 0.28)",
     borderRadius: 22,
     padding: 22,
+  },
+
+  statusHeader: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    marginBottom: 10,
+  },
+
+  statusDot: {
+    width: 10,
+    height: 10,
+    borderRadius: "50%",
+    background: "#FFD374",
+  },
+
+  statusTitleMain: {
+    fontSize: 14,
+    fontWeight: 800,
+    letterSpacing: "0.08em",
+    textTransform: "uppercase",
+    color: "#FFD374",
   },
 
   statusTitle: {
