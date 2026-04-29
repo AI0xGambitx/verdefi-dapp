@@ -367,9 +367,9 @@ function App() {
         <main style={styles.main}>
           <section style={styles.hero}>
             <div style={styles.heroBadge}>Dashboard</div>
-            <h1 style={styles.heroTitle}>Mint, request, and claim with VerdeFi</h1>
+            <h1 style={styles.heroTitle}>Mint VERDE. Enter cannabis-backed DeFi. Grow on-chain.</h1>
             <p style={styles.heroText}>
-              A simple on-chain interface to interact with the VerdeVault on Avalanche Mainnet.
+              A minimalist on-chain interface to interact with VerdeVault on Avalanche Mainnet.
             </p>
 
             <div style={styles.contractsStrip}>
