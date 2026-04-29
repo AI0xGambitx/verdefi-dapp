@@ -1,15 +1,8 @@
-import { createConfig, http } from "wagmi"
+import { getDefaultConfig } from "@rainbow-me/rainbowkit"
 import { avalanche } from "wagmi/chains"
-import { injected } from "wagmi/connectors"
 
-export const config = createConfig({
+export const config = getDefaultConfig({
+  appName: "VerdeFi",
+  projectId: "0ac6605f7fed49a543cf5079a323a20d",
   chains: [avalanche],
-  connectors: [
-    injected({
-      target: "metaMask",
-    }),
-  ],
-  transports: {
-    [avalanche.id]: http(),
-  },
 })
