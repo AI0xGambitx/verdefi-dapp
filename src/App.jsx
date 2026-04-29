@@ -329,7 +329,8 @@ function App() {
 
       await waitForTransactionReceipt(config, { hash })
 
-      setTxMessage(`Claim completed successfully. USDC released. Tx: ${hash}`)
+      setTxMessage(`Claim completed successfully. USDC released. Tx: ${hash}`);
+      clearRequestId()
       await refreshData()
     } catch (err) {
       setTxMessage(
