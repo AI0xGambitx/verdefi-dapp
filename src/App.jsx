@@ -31,13 +31,14 @@ function App() {
   const { switchChain } = useSwitchChain()
   const { writeContractAsync } = useWriteContract()
 
-  const [depositAmount, setDepositAmount] = useState("100")
-  const [withdrawAmount, setWithdrawAmount] = useState("2000")
+  const [depositAmount, setDepositAmount] = useState("")
+  const [withdrawAmount, setWithdrawAmount] = useState("")
   const [claimId, setClaimId] = useState(() => {
     return localStorage.getItem(STORAGE_KEY_LAST_REQUEST_ID) || ""
   })
   const [loadingAction, setLoadingAction] = useState("")
   const [txMessage, setTxMessage] = useState("")
+  const [copiedContract, setCopiedContract] = useState("")
 
   const metaMaskConnector = useMemo(() => {
     return connectors.find(
@@ -60,6 +61,19 @@ function App() {
   const shortenAddress = (value) => {
     if (!value) return "-"
     return `${value.slice(0, 6)}...${value.slice(-4)}`
+  }
+
+  const snowtraceUrl = (contractAddress) => {
+    return `https://snowtrace.io/address/${contractAddress}`
+  }
+
+  const copyContractAddress = async (label, contractAddress) => {
+    await navigator.clipboard.writeText(contractAddress)
+    setCopiedContract(label)
+
+    setTimeout(() => {
+      setCopiedContract("")
+    }, 1800)
   }
 
   const formatUSDC = (value) => {
@@ -168,6 +182,11 @@ function App() {
       return
     }
 
+    if (!depositAmount) {
+      setTxMessage("Enter a USDC amount first.")
+      return
+    }
+
     try {
       setLoadingAction("deposit")
       setTxMessage("Approving USDC spending...")
@@ -215,6 +234,11 @@ function App() {
 
     if (!isCorrectNetwork) {
       setTxMessage("Wrong network. Please switch to Avalanche Mainnet.")
+      return
+    }
+
+    if (!withdrawAmount) {
+      setTxMessage("Enter a VERDE amount first.")
       return
     }
 
@@ -320,11 +344,11 @@ function App() {
       <div style={styles.shell}>
         <header style={styles.header}>
           <div>
-           <div style={styles.brandRow}>
-            <img src="/logo.png" alt="VerdeFi logo" style={styles.logoFull} />
+            <div style={styles.brandRow}>
+              <img src="/logo.png" alt="VerdeFi logo" style={styles.logoFull} />
+            </div>
+            <div style={styles.tagline}>Cannabis-backed DeFi on Avalanche</div>
           </div>
-          <div style={styles.tagline}>Cannabis-backed DeFi on Avalanche</div>
-      </div>  
 
           {!isConnected ? (
             <button style={styles.headerButton} onClick={handleConnect}>
@@ -347,6 +371,58 @@ function App() {
             <p style={styles.heroText}>
               A simple on-chain interface to interact with the VerdeVault on Avalanche Mainnet.
             </p>
+
+            <div style={styles.contractsStrip}>
+              <div style={styles.contractItem}>
+                <span style={styles.contractLabel}>VerdeToken</span>
+                <span style={styles.contractAddress}>
+                  {shortenAddress(CONTRACTS.verdeToken)}
+                </span>
+                <div style={styles.contractActions}>
+                  <a
+                    href={snowtraceUrl(CONTRACTS.verdeToken)}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={styles.contractLink}
+                  >
+                    Snowtrace
+                  </a>
+                  <button
+                    style={styles.contractCopyButton}
+                    onClick={() =>
+                      copyContractAddress("VerdeToken", CONTRACTS.verdeToken)
+                    }
+                  >
+                    {copiedContract === "VerdeToken" ? "Copied" : "Copy"}
+                  </button>
+                </div>
+              </div>
+
+              <div style={styles.contractItem}>
+                <span style={styles.contractLabel}>VerdeVault</span>
+                <span style={styles.contractAddress}>
+                  {shortenAddress(CONTRACTS.verdeVault)}
+                </span>
+                <div style={styles.contractActions}>
+                  <a
+                    href={snowtraceUrl(CONTRACTS.verdeVault)}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={styles.contractLink}
+                  >
+                    Snowtrace
+                  </a>
+                  <button
+                    style={styles.contractCopyButton}
+                    onClick={() =>
+                      copyContractAddress("VerdeVault", CONTRACTS.verdeVault)
+                    }
+                  >
+                    {copiedContract === "VerdeVault" ? "Copied" : "Copy"}
+                  </button>
+                </div>
+              </div>
+            </div>
           </section>
 
           {!isConnected && (
@@ -469,7 +545,12 @@ function App() {
               <button
                 style={{ ...styles.actionButton, ...styles.buttonDeposit }}
                 onClick={handleDeposit}
-                disabled={loadingAction !== "" || !isConnected || !isCorrectNetwork}
+                disabled={
+                  loadingAction !== "" ||
+                  !isConnected ||
+                  !isCorrectNetwork ||
+                  !depositAmount
+                }
               >
                 {loadingAction === "deposit" ? "Processing..." : "Approve + Deposit"}
               </button>
@@ -503,7 +584,12 @@ function App() {
               <button
                 style={{ ...styles.actionButton, ...styles.buttonRequest }}
                 onClick={handleWithdrawRequest}
-                disabled={loadingAction !== "" || !isConnected || !isCorrectNetwork}
+                disabled={
+                  loadingAction !== "" ||
+                  !isConnected ||
+                  !isCorrectNetwork ||
+                  !withdrawAmount
+                }
               >
                 {loadingAction === "request" ? "Processing..." : "Request Withdraw"}
               </button>
@@ -643,11 +729,12 @@ const styles = {
     alignItems: "center",
     gap: 10,
   },
+
   logoFull: {
-  height: 42,
-  width: "auto",
-  objectFit: "contain",
-  display: "block",
+    height: 42,
+    width: "auto",
+    objectFit: "contain",
+    display: "block",
   },
 
   logo: {
@@ -745,6 +832,63 @@ const styles = {
     lineHeight: 1.6,
     color: "rgba(255,255,255,0.78)",
     maxWidth: 720,
+  },
+
+  contractsStrip: {
+    display: "grid",
+    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+    gap: 14,
+    marginTop: 20,
+    maxWidth: 720,
+  },
+
+  contractItem: {
+    background: "rgba(7, 23, 21, 0.62)",
+    border: "1px solid rgba(255,255,255,0.08)",
+    borderRadius: 18,
+    padding: "14px 16px",
+    backdropFilter: "blur(10px)",
+  },
+
+  contractLabel: {
+    display: "block",
+    fontSize: 11,
+    textTransform: "uppercase",
+    letterSpacing: "0.08em",
+    color: "rgba(255,255,255,0.52)",
+    marginBottom: 8,
+  },
+
+  contractAddress: {
+    display: "block",
+    fontSize: 15,
+    fontWeight: 800,
+    color: "#FFFFFF",
+    marginBottom: 10,
+  },
+
+  contractActions: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+  },
+
+  contractLink: {
+    color: "#FFD374",
+    fontSize: 13,
+    fontWeight: 800,
+    textDecoration: "none",
+  },
+
+  contractCopyButton: {
+    border: "1px solid rgba(255,255,255,0.12)",
+    background: "rgba(255,255,255,0.06)",
+    color: "#FFFFFF",
+    borderRadius: 10,
+    padding: "6px 10px",
+    fontSize: 12,
+    fontWeight: 800,
+    cursor: "pointer",
   },
 
   statsGrid: {
