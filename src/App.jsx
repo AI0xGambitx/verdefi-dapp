@@ -33,12 +33,14 @@ function App() {
 
   const [depositAmount, setDepositAmount] = useState("")
   const [withdrawAmount, setWithdrawAmount] = useState("")
-  const [claimId, setClaimId] = useState(() => {
+  const [savedRequestId, setSavedRequestId] = useState(() => {
     return localStorage.getItem(STORAGE_KEY_LAST_REQUEST_ID) || ""
   })
+  const [claimId, setClaimId] = useState("")
   const [loadingAction, setLoadingAction] = useState("")
   const [txMessage, setTxMessage] = useState("")
   const [copiedContract, setCopiedContract] = useState("")
+  const [copiedRequestId, setCopiedRequestId] = useState(false)
 
   const metaMaskConnector = useMemo(() => {
     return connectors.find(
@@ -49,6 +51,7 @@ function App() {
   }, [connectors])
 
   const isCorrectNetwork = chainId === AVALANCHE_MAINNET_CHAIN_ID
+  const activeClaimId = claimId || savedRequestId
 
   const handleConnect = () => {
     if (!metaMaskConnector) {
@@ -73,6 +76,17 @@ function App() {
 
     setTimeout(() => {
       setCopiedContract("")
+    }, 1800)
+  }
+
+  const copyRequestId = async () => {
+    if (!savedRequestId) return
+
+    await navigator.clipboard.writeText(savedRequestId)
+    setCopiedRequestId(true)
+
+    setTimeout(() => {
+      setCopiedRequestId(false)
     }, 1800)
   }
 
@@ -102,11 +116,13 @@ function App() {
 
   const saveRequestId = (id) => {
     const normalized = String(id)
-    setClaimId(normalized)
+    setSavedRequestId(normalized)
+    setClaimId("")
     localStorage.setItem(STORAGE_KEY_LAST_REQUEST_ID, normalized)
   }
 
   const clearRequestId = () => {
+    setSavedRequestId("")
     setClaimId("")
     localStorage.removeItem(STORAGE_KEY_LAST_REQUEST_ID)
   }
@@ -257,7 +273,6 @@ function App() {
       })
 
       await waitForTransactionReceipt(config, { hash })
-      await refreshData()
 
       const nextId =
         withdrawRequestsCount !== undefined
@@ -273,6 +288,8 @@ function App() {
       } else {
         setTxMessage(`Withdraw request submitted successfully. Tx: ${hash}`)
       }
+
+      await refreshData()
     } catch (err) {
       setTxMessage(
         `Withdraw request failed: ${err?.shortMessage || err?.message || "Unknown error"}`
@@ -293,20 +310,20 @@ function App() {
       return
     }
 
-    if (!claimId) {
+    if (!activeClaimId) {
       setTxMessage("Enter a valid request ID first.")
       return
     }
 
     try {
       setLoadingAction("claim")
-      setTxMessage(`Claiming request ID ${claimId}...`)
+      setTxMessage(`Claiming request ID ${activeClaimId}...`)
 
       const hash = await writeContractAsync({
         address: CONTRACTS.verdeVault,
         abi: verdeVaultAbi,
         functionName: "claimWithdraw",
-        args: [BigInt(claimId)],
+        args: [BigInt(activeClaimId)],
         chainId: AVALANCHE_MAINNET_CHAIN_ID,
       })
 
@@ -367,7 +384,9 @@ function App() {
         <main style={styles.main}>
           <section style={styles.hero}>
             <div style={styles.heroBadge}>Dashboard</div>
-            <h1 style={styles.heroTitle}>Mint VERDE. Enter cannabis-backed DeFi. Grow on-chain.</h1>
+            <h1 style={styles.heroTitle}>
+              Mint VERDE. Enter cannabis-backed DeFi. Grow on-chain.
+            </h1>
             <p style={styles.heroText}>
               A minimalist on-chain interface to interact with VerdeVault on Avalanche Mainnet.
             </p>
@@ -461,6 +480,27 @@ function App() {
               <div style={styles.statCard}>
                 <span style={styles.statLabel}>Latest Request ID</span>
                 <span style={styles.statValue}>{latestRequestId}</span>
+              </div>
+            </section>
+          )}
+
+          {isConnected && savedRequestId && (
+            <section style={styles.savedRequestCard}>
+              <div>
+                <div style={styles.savedRequestLabel}>Your Saved Claim ID</div>
+                <div style={styles.savedRequestValue}>#{savedRequestId}</div>
+                <div style={styles.savedRequestHint}>
+                  Save this ID. You will need it after 24h to claim your USDC.
+                </div>
+              </div>
+
+              <div style={styles.savedRequestActions}>
+                <button style={styles.copyRequestButton} onClick={copyRequestId}>
+                  {copiedRequestId ? "Copied" : "Copy ID"}
+                </button>
+                <button style={styles.clearRequestButton} onClick={clearRequestId}>
+                  Clear
+                </button>
               </div>
             </section>
           )}
@@ -616,37 +656,40 @@ function App() {
                 onChange={(e) => setClaimId(e.target.value)}
                 type="text"
                 inputMode="numeric"
-                placeholder="Enter your Request ID"
+                placeholder={
+                  savedRequestId
+                    ? `Saved Request ID: #${savedRequestId}`
+                    : "Enter your Request ID"
+                }
               />
 
               <div style={styles.requestIdBox}>
-                {claimId ? (
+                {activeClaimId ? (
                   <>
                     <div style={styles.requestIdLabel}>Request ID to Claim</div>
-                    <div style={styles.requestIdValue}>#{claimId}</div>
+                    <div style={styles.requestIdValue}>#{activeClaimId}</div>
                     <div style={styles.requestIdHint}>
-                      Save this ID. You will need it to claim your funds.
+                      This ID will be used when you click Claim Withdraw.
                     </div>
                   </>
                 ) : (
                   <div style={styles.requestIdEmpty}>No request ID stored yet</div>
-                )}
-
-                {claimId && (
-                  <button style={styles.clearButton} onClick={clearRequestId}>
-                    Clear
-                  </button>
                 )}
               </div>
 
               <button
                 style={{ ...styles.actionButton, ...styles.buttonClaim }}
                 onClick={handleClaim}
-                disabled={loadingAction !== "" || !isConnected || !isCorrectNetwork}
+                disabled={
+                  loadingAction !== "" ||
+                  !isConnected ||
+                  !isCorrectNetwork ||
+                  !activeClaimId
+                }
               >
                 {loadingAction === "claim"
                   ? "Processing..."
-                  : `Claim ${claimId ? `#${claimId}` : "Withdraw"}`}
+                  : `Claim ${activeClaimId ? `#${activeClaimId}` : "Withdraw"}`}
               </button>
             </div>
           </section>
@@ -819,11 +862,12 @@ const styles = {
   },
 
   heroTitle: {
-    fontSize: 46,
-    lineHeight: 1.05,
+    fontSize: 39,
+    lineHeight: 1.08,
     fontWeight: 800,
     margin: 0,
-    maxWidth: 760,
+    maxWidth: 1160,
+    whiteSpace: "nowrap",
   },
 
   heroText: {
@@ -918,6 +962,69 @@ const styles = {
     fontSize: 18,
     fontWeight: 700,
     lineHeight: 1.4,
+  },
+
+  savedRequestCard: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 18,
+    background:
+      "linear-gradient(90deg, rgba(255,211,116,0.12) 0%, rgba(7,23,21,0.78) 100%)",
+    border: "1px solid rgba(255,211,116,0.24)",
+    borderRadius: 22,
+    padding: "20px 22px",
+    boxShadow: "0 10px 35px rgba(0,0,0,0.20)",
+  },
+
+  savedRequestLabel: {
+    fontSize: 12,
+    textTransform: "uppercase",
+    letterSpacing: "0.08em",
+    color: "rgba(255,255,255,0.62)",
+    marginBottom: 6,
+  },
+
+  savedRequestValue: {
+    fontSize: 30,
+    fontWeight: 900,
+    color: "#FFD374",
+    lineHeight: 1,
+  },
+
+  savedRequestHint: {
+    marginTop: 8,
+    fontSize: 14,
+    color: "rgba(255,255,255,0.72)",
+  },
+
+  savedRequestActions: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    flexShrink: 0,
+  },
+
+  copyRequestButton: {
+    border: "none",
+    background: "#FFD374",
+    color: "#0A1B18",
+    borderRadius: 12,
+    padding: "10px 14px",
+    fontSize: 13,
+    fontWeight: 900,
+    cursor: "pointer",
+  },
+
+  clearRequestButton: {
+    border: "1px solid rgba(255,255,255,0.14)",
+    background: "rgba(255,255,255,0.06)",
+    color: "#FFFFFF",
+    borderRadius: 12,
+    padding: "10px 14px",
+    fontSize: 13,
+    fontWeight: 800,
+    cursor: "pointer",
   },
 
   infoGrid: {
