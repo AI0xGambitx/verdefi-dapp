@@ -866,7 +866,7 @@ const styles = {
   },
 
 heroTitleGreen: {
-  color: "#16c784",
+  color: "#2E6F44",
   },
 
   heroText: {
