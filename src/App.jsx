@@ -371,7 +371,7 @@ function App() {
 
             <div style={styles.contractsStrip}>
               <div style={styles.contractItem}>
-                <span style={styles.contractLabel}>VerdeToken</span>
+                <span style={styles.contractLabel}>Verde Token</span>
                 <span style={styles.contractAddress}>
                   {shortenAddress(CONTRACTS.verdeToken)}
                 </span>
@@ -402,12 +402,12 @@ function App() {
                 </span>
                 <div style={styles.contractActions}>
                   <a
-                    href="https://yieldyak.com/avalanche/milk/0xdC038cFf8E55416a5189e37F382879c19217a4CB/"
+                    href="https://snowtrace.io/address/0xdC038cFf8E55416a5189e37F382879c19217a4CB"
                     target="_blank"
                     rel="noreferrer"
                     style={styles.contractLink}
                   >
-                    Yield Yak
+                    Snowtrace
                   </a>
                   <button
                     style={styles.contractCopyButton}
