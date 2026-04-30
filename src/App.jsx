@@ -344,7 +344,7 @@ function App() {
             <div style={styles.brandRow}>
               <img src="/logo.png" alt="VerdeFi logo" style={styles.logoFull} />
             </div>
-            <div style={styles.tagline}>Cannabis-backed DeFi on Avalanche</div>
+            <div style={styles.tagline}>Real-world Asset on Avalanche backed by Cannabis</div>
           </div>
 
           <div style={styles.connectButtonWrap}>
@@ -362,10 +362,10 @@ function App() {
           <section style={styles.hero}>
             <div style={styles.heroBadge}>Dashboard</div>
             <h1 style={styles.heroTitle}>
-              Mint VERDE. Enter cannabis-backed DeFi. Grow on-chain.
+              Mint VERDE and gain on-chain exposure to the cannabis industry.
             </h1>
             <p style={styles.heroText}>
-              A minimalist on-chain interface to interact with VerdeVault on Avalanche Mainnet.
+              Not high enough? Burn VERDE and withdraw your USDC anytime minus 3% fee.
             </p>
 
             <div style={styles.contractsStrip}>
@@ -559,6 +559,8 @@ function App() {
                 placeholder="100"
               />
 
+              <div style={styles.helperText}>Min: 10 USDC</div>
+
               <button
                 style={{ ...styles.actionButton, ...styles.buttonDeposit }}
                 onClick={handleDeposit}
@@ -596,7 +598,7 @@ function App() {
                 placeholder="2000"
               />
 
-              <div style={styles.helperText}>Withdrawal delay: 24 hours</div>
+              <div style={styles.helperText}>Withdrawal delay: 24 hours. Min: 200 VERDE</div>
 
               <button
                 style={{ ...styles.actionButton, ...styles.buttonRequest }}
