@@ -362,7 +362,8 @@ function App() {
           <section style={styles.hero}>
             <div style={styles.heroBadge}>Dashboard</div>
             <h1 style={styles.heroTitle}>
-              Mint VERDE and gain on-chain exposure to the cannabis industry.
+              Mint <span style={styles.heroTitleGold}>VERDE</span> and gain on-chain exposure to the{" "}
+              <span style={styles.heroTitleGreen}>cannabis industry</span>
             </h1>
             <p style={styles.heroText}>
               Not high enough? Burn VERDE and withdraw your USDC anytime minus 3% fee.
@@ -395,28 +396,30 @@ function App() {
               </div>
 
               <div style={styles.contractItem}>
-                <span style={styles.contractLabel}>VerdeVault</span>
+                <span style={styles.contractLabel}>USDC Vault</span>
                 <span style={styles.contractAddress}>
-                  {shortenAddress(CONTRACTS.verdeVault)}
+                  {shortenAddress("0xdC038cFf8E55416a5189e37F382879c19217a4CB")}
                 </span>
                 <div style={styles.contractActions}>
                   <a
-                    href={snowtraceUrl(CONTRACTS.verdeVault)}
+                    href="https://yieldyak.com/avalanche/milk/0xdC038cFf8E55416a5189e37F382879c19217a4CB/"
                     target="_blank"
                     rel="noreferrer"
                     style={styles.contractLink}
                   >
-                    Snowtrace
+                    Yield Yak
                   </a>
                   <button
                     style={styles.contractCopyButton}
                     onClick={() =>
-                      copyContractAddress("VerdeVault", CONTRACTS.verdeVault)
-                    }
+                      copyContractAddress(
+                        "USDC Vault",
+                        "0xdC038cFf8E55416a5189e37F382879c19217a4CB"
+                     )
+                   }
                   >
-                    {copiedContract === "VerdeVault" ? "Copied" : "Copy"}
-                  </button>
-                </div>
+                   {copiedContract === "USDC Vault" ? "Copied" : "Copy"}
+                </button>
               </div>
             </div>
           </section>
@@ -855,6 +858,14 @@ const styles = {
     margin: 0,
     maxWidth: 1160,
     whiteSpace: "nowrap",
+  },
+
+  heroTitleGold: {
+  color: "#FFD374",
+  },
+
+heroTitleGreen: {
+  color: "#16c784",
   },
 
   heroText: {
