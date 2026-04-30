@@ -1,10 +1,9 @@
-import { useMemo, useState } from "react"
+import { useState } from "react"
+import { ConnectButton } from "@rainbow-me/rainbowkit"
 import {
   useAccount,
   useBalance,
   useChainId,
-  useConnect,
-  useDisconnect,
   useReadContract,
   useSwitchChain,
   useWriteContract,
@@ -26,8 +25,6 @@ const STORAGE_KEY_LAST_REQUEST_ID = "verdefi_last_request_id"
 function App() {
   const { address, isConnected } = useAccount()
   const chainId = useChainId()
-  const { connect, connectors } = useConnect()
-  const { disconnect } = useDisconnect()
   const { switchChain } = useSwitchChain()
   const { writeContractAsync } = useWriteContract()
 
@@ -42,24 +39,8 @@ function App() {
   const [copiedContract, setCopiedContract] = useState("")
   const [copiedRequestId, setCopiedRequestId] = useState(false)
 
-  const metaMaskConnector = useMemo(() => {
-    return connectors.find(
-      (c) =>
-        c.name?.toLowerCase().includes("metamask") ||
-        c.id?.toLowerCase().includes("metamask")
-    )
-  }, [connectors])
-
   const isCorrectNetwork = chainId === AVALANCHE_MAINNET_CHAIN_ID
   const activeClaimId = claimId || savedRequestId
-
-  const handleConnect = () => {
-    if (!metaMaskConnector) {
-      alert("MetaMask not detected.")
-      return
-    }
-    connect({ connector: metaMaskConnector })
-  }
 
   const shortenAddress = (value) => {
     if (!value) return "-"
@@ -275,9 +256,7 @@ function App() {
       await waitForTransactionReceipt(config, { hash })
 
       const nextId =
-        withdrawRequestsCount !== undefined
-          ? Number(withdrawRequestsCount)
-          : null
+        withdrawRequestsCount !== undefined ? Number(withdrawRequestsCount) : null
 
       if (nextId !== null) {
         const actualId = String(nextId)
@@ -329,7 +308,7 @@ function App() {
 
       await waitForTransactionReceipt(config, { hash })
 
-      setTxMessage(`Claim completed successfully. USDC released. Tx: ${hash}`);
+      setTxMessage(`Claim completed successfully. USDC released. Tx: ${hash}`)
       clearRequestId()
       await refreshData()
     } catch (err) {
@@ -368,18 +347,15 @@ function App() {
             <div style={styles.tagline}>Cannabis-backed DeFi on Avalanche</div>
           </div>
 
-          {!isConnected ? (
-            <button style={styles.headerButton} onClick={handleConnect}>
-              Connect Wallet
-            </button>
-          ) : (
-            <div style={styles.walletBox}>
-              <span style={styles.walletAddress}>{shortenAddress(address)}</span>
-              <button style={styles.disconnectButton} onClick={() => disconnect()}>
-                Disconnect
-              </button>
-            </div>
-          )}
+          <div style={styles.connectButtonWrap}>
+            <ConnectButton
+              showBalance={false}
+              accountStatus={{
+                smallScreen: "avatar",
+                largeScreen: "full",
+              }}
+            />
+          </div>
         </header>
 
         <main style={styles.main}>
@@ -546,7 +522,7 @@ function App() {
             <section style={styles.statusWrapError}>
               <div style={styles.statusTitle}>Network Warning</div>
               <div style={styles.statusText}>
-                Wrong network detected. Please switch MetaMask to Avalanche Mainnet
+                Wrong network detected. Please switch your wallet to Avalanche Mainnet
                 before depositing, requesting, or claiming.
               </div>
 
@@ -766,6 +742,14 @@ const styles = {
     alignItems: "center",
     justifyContent: "space-between",
     marginBottom: 28,
+    gap: 18,
+  },
+
+  connectButtonWrap: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    flexShrink: 0,
   },
 
   brandRow: {
