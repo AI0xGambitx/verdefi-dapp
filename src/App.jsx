@@ -422,7 +422,8 @@ function App() {
                 </button>
               </div>
             </div>
-          </section>
+          </div>
+        </section>
 
           {!isConnected && (
             <section style={styles.statusWrap}>
